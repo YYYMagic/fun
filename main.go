@@ -84,8 +84,9 @@ func (s *Snake) Draw(screen *ebiten.Image) {
 	}
 }
 
-func (s *Snake) SetDir() {
-	if inpututil.IsKeyJustPressed(ebiten.KeyUp) || inpututil.IsKeyJustPressed(ebiten.KeyA) {
+func (s *Snake) SetDir(ids []ebiten.GamepadID) {
+	// keyboard
+	if inpututil.IsKeyJustPressed(ebiten.KeyUp) {
 		if s.direction != Down {
 			s.direction = Up
 		}
@@ -100,6 +101,48 @@ func (s *Snake) SetDir() {
 	} else if inpututil.IsKeyJustPressed(ebiten.KeyRight) {
 		if s.direction != Left {
 			s.direction = Right
+		}
+	}
+
+	for _, p := range ids {
+		// standard button
+		if ebiten.IsStandardGamepadLayoutAvailable(p) {
+			if inpututil.IsStandardGamepadButtonJustPressed(p, ebiten.StandardGamepadButtonRightTop) {
+				if s.direction != Down {
+					s.direction = Up
+				}
+			} else if inpututil.IsStandardGamepadButtonJustPressed(p, ebiten.StandardGamepadButtonRightBottom) {
+				if s.direction != Up {
+					s.direction = Down
+				}
+			} else if inpututil.IsStandardGamepadButtonJustPressed(p, ebiten.StandardGamepadButtonRightLeft) {
+				if s.direction != Right {
+					s.direction = Left
+				}
+			} else if inpututil.IsStandardGamepadButtonJustPressed(p, ebiten.StandardGamepadButtonRightRight) {
+				if s.direction != Left {
+					s.direction = Right
+				}
+			}
+		}
+
+		// nintendo switch axis
+		if inpututil.IsGamepadButtonJustPressed(p, ebiten.GamepadButton16) {
+			if s.direction != Down {
+				s.direction = Up
+			}
+		} else if inpututil.IsGamepadButtonJustPressed(p, ebiten.GamepadButton18) {
+			if s.direction != Up {
+				s.direction = Down
+			}
+		} else if inpututil.IsGamepadButtonJustPressed(p, ebiten.GamepadButton19) {
+			if s.direction != Right {
+				s.direction = Left
+			}
+		} else if inpututil.IsGamepadButtonJustPressed(p, ebiten.GamepadButton17) {
+			if s.direction != Left {
+				s.direction = Right
+			}
 		}
 	}
 }
@@ -175,6 +218,20 @@ func (g *Game) Reset() {
 	g.level = 1
 }
 
+func (g *Game) CheckReset() {
+	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		g.Reset()
+	}
+	for _, p := range g.gamepadIDs {
+		// standard button
+		if ebiten.IsStandardGamepadLayoutAvailable(p) {
+			if inpututil.IsStandardGamepadButtonJustPressed(p, ebiten.StandardGamepadButtonCenterLeft) {
+				g.Reset()
+			}
+		}
+	}
+}
+
 type Game struct {
 	snake      *Snake
 	apple      *image.Point
@@ -183,16 +240,16 @@ type Game struct {
 	tMove      int
 	score      int
 	level      int
+
+	gamepadIDs []ebiten.GamepadID
 }
 
 func (g *Game) Update() error {
 	g.tCount++
 
-	g.snake.SetDir()
-	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
-		g.Reset()
-
-	}
+	g.gamepadIDs = ebiten.AppendGamepadIDs(g.gamepadIDs[:0])
+	g.snake.SetDir(g.gamepadIDs)
+	g.CheckReset()
 
 	shouldMove := g.snake.ShouldMove(func() bool {
 		return g.tCount%g.tMove == 0
@@ -233,7 +290,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	screen.DrawImage(xiangImg, opt)
 	g.snake.Draw(screen)
 	if g.snake.direction == None {
-		ebitenutil.DebugPrint(screen, fmt.Sprintf("Press up/down/left/right to start"))
+		ebitenutil.DebugPrint(screen, fmt.Sprintf("Press up/down/left/right or axis to start"))
 	} else {
 		ebitenutil.DebugPrint(screen, fmt.Sprintf("Level: %d Score: %d", g.level, g.score))
 	}
